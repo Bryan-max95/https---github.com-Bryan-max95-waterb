@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api';
 import { Calendar, DollarSign, Droplet, Users } from 'lucide-react';
-import { format, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 
 export const Sales: React.FC = () => {
@@ -30,9 +30,8 @@ export const Sales: React.FC = () => {
   }, []);
 
   const filteredSales = useMemo(() => {
-    const start = startOfDay(new Date(filterDate)).getTime();
     return allSales.filter((s: any) => {
-      const byDate = startOfDay(new Date(s.timestamp)).getTime() === start;
+      const byDate = (s.local_date || format(new Date(s.timestamp), 'yyyy-MM-dd')) === filterDate;
       const bySeller = selectedSellerId === 'all' || String(s.seller_id) === selectedSellerId;
       return byDate && bySeller;
     });
@@ -158,12 +157,12 @@ export const Sales: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredSales.length > 0 ? filteredSales.map((sale) => (
                 <tr key={sale.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 text-xs font-medium text-slate-600">{format(new Date(sale.timestamp), 'HH:mm')}</td>
+                  <td className="px-6 py-4 text-xs font-medium text-slate-600">{format(new Date(sale.local_timestamp || sale.timestamp), 'HH:mm')}</td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{sale.correlative}</span>
                   </td>
                   <td className="px-6 py-4 text-sm font-bold text-slate-900">{sale.seller_name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{sale.customer_name || 'Venta directa'}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{sale.customer_name || 'N/A'}</td>
                   <td className="px-6 py-4">
                     <span
                       className={cn(

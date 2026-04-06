@@ -49,6 +49,8 @@ export const SellerApp: React.FC = () => {
   const [hasStartedDay, setHasStartedDay] = useState(false);
   const [soldToday, setSoldToday] = useState(0);
   const [revenueToday, setRevenueToday] = useState(0);
+  const [cycleExpenses, setCycleExpenses] = useState(0);
+  const [expectedCashCycle, setExpectedCashCycle] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [salesHistory, setSalesHistory] = useState<any[]>([]);
@@ -88,26 +90,41 @@ export const SellerApp: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [salesData, customersData, productsData, profileData] = await Promise.all([
+      const [salesData, customersData, productsData, profileData, closuresData, expensesData] = await Promise.all([
         api.get('/api/sales'),
         api.get('/api/customers'),
         api.get('/api/products'),
-        api.get('/api/auth/profile')
+        api.get('/api/auth/profile'),
+        api.get('/api/closures'),
+        api.get('/api/expenses')
       ]);
 
-      const today = startOfDay(new Date());
-      const todaySales = salesData.filter((s: any) => startOfDay(new Date(s.timestamp)).getTime() === today.getTime());
+      const sellerClosures = (closuresData || [])
+        .filter((c: any) => Number(c.seller_id) === Number(profileData.id))
+        .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const lastClosureTs = sellerClosures.length > 0 ? new Date(sellerClosures[0].timestamp).getTime() : 0;
+      const cycleSales = (salesData || []).filter((s: any) => new Date(s.timestamp).getTime() > lastClosureTs);
+      const currentCycleExpenses = (expensesData || []).filter((e: any) => new Date(e.timestamp).getTime() > lastClosureTs);
+      const cashSalesCycle = cycleSales
+        .filter((s: any) => s.payment_type === 'cash')
+        .reduce((acc: number, s: any) => acc + Number(s.total_amount || 0), 0);
+      const expensesCycleTotal = currentCycleExpenses
+        .reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
       
-      setSalesHistory(salesData);
-      setSoldToday(todaySales.reduce((acc: number, s: any) => acc + s.quantity, 0));
-      setRevenueToday(todaySales.reduce((acc: number, s: any) => acc + Number(s.total_amount), 0));
+      setSalesHistory(cycleSales);
+      setSoldToday(cycleSales.reduce((acc: number, s: any) => acc + s.quantity, 0));
+      setRevenueToday(cycleSales.reduce((acc: number, s: any) => acc + Number(s.total_amount), 0));
+      setCycleExpenses(expensesCycleTotal);
+      setExpectedCashCycle(cashSalesCycle - expensesCycleTotal);
       setCustomers(customersData);
       setProducts(productsData);
       setSelectedProduct(productsData.find((p: any) => p.is_default) || productsData[0]);
       setStock(profileData.current_stock || 0);
       
       // For demo/simulated start day
-      setHasStartedDay(localStorage.getItem('dayStarted') === today.toISOString());
+      const today = startOfDay(new Date());
+      const todayKey = format(today, 'yyyy-MM-dd');
+      setHasStartedDay(localStorage.getItem('dayStarted') === todayKey);
     } catch (err) {
       console.error(err);
     }
@@ -148,7 +165,8 @@ export const SellerApp: React.FC = () => {
 
   const handleStartDay = () => {
     const today = startOfDay(new Date());
-    localStorage.setItem('dayStarted', today.toISOString());
+    localStorage.setItem('dayStarted', format(today, 'yyyy-MM-dd'));
+    localStorage.setItem('dayStartStock', String(stock || 0));
     setHasStartedDay(true);
     setMessage({ type: 'success', text: 'Jornada iniciada con éxito' });
     setTimeout(() => setMessage(null), 3000);
@@ -176,7 +194,7 @@ export const SellerApp: React.FC = () => {
       setInvoiceData({
         id: result.id,
         timestamp: result.timestamp || new Date().toISOString(),
-        customerName: selectedCustomer?.name || 'Cliente de contado',
+        customerName: selectedCustomer?.name || 'N/A',
         productName: selectedProduct?.name || 'Botellón de Agua',
         quantity: saleQty,
         unitPrice: selectedProduct?.price || 0,
@@ -230,17 +248,20 @@ export const SellerApp: React.FC = () => {
         .reduce((acc, s) => acc + Number(s.total_amount || 0), 0);
 
       await api.post('/api/closures', {
-        expectedCash: revenueToday,
+        expectedCash: expectedCashCycle,
         declaredCash: totalDeclared,
         creditsTotal: creditSalesTotal,
         expensesTotal: 0,
         cashDenominations: counts,
+        soldBottles: soldToday,
+        loadedInitial: Number(localStorage.getItem('dayStartStock') || 0),
       });
 
       setMessage({ type: 'success', text: 'Cierre de jornada completado. Cerrando sesión...' });
       setView('home');
       setCounts(DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.value]: 0 }), {}));
       localStorage.removeItem('dayStarted');
+      localStorage.removeItem('dayStartStock');
       setHasStartedDay(false);
       setTimeout(() => logout(), 1200);
     } catch (err) {
@@ -331,7 +352,7 @@ export const SellerApp: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 backdrop-blur-md p-5 rounded-3xl border border-white/10">
-                    <p className="text-[10px] text-blue-300 uppercase font-bold mb-1 tracking-widest">Entregas Hoy</p>
+                    <p className="text-[10px] text-blue-300 uppercase font-bold mb-1 tracking-widest">Entregas Corte</p>
                     <p className="text-2xl font-black">{soldToday}</p>
                   </div>
                   <div className="bg-white/5 backdrop-blur-md p-5 rounded-3xl border border-white/10">
@@ -396,7 +417,7 @@ export const SellerApp: React.FC = () => {
                       <ShoppingCart className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{sale.customer_name}</p>
+                      <p className="text-sm font-bold text-slate-900">{sale.customer_name || 'N/A'}</p>
                       <p className="text-[10px] text-slate-400 font-medium">
                         {format(new Date(sale.timestamp), 'HH:mm')} - {sale.payment_type}
                       </p>
@@ -431,7 +452,7 @@ export const SellerApp: React.FC = () => {
                     <ShoppingCart className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm font-black text-slate-900">{sale.customer_name}</p>
+                    <p className="text-sm font-black text-slate-900">{sale.customer_name || 'N/A'}</p>
                     <p className="text-xs text-slate-500 font-medium">
                       {format(new Date(sale.timestamp), 'dd/MM/yyyy HH:mm')}
                     </p>
@@ -591,6 +612,19 @@ export const SellerApp: React.FC = () => {
                 >
                   <Plus className="h-8 w-8" />
                 </button>
+              </div>
+              <div className="mt-4 max-w-xs mx-auto">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-center">Ingresar cantidad manual</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={saleQty}
+                  onChange={(e) => {
+                    const parsed = Number(e.target.value);
+                    setSaleQty(Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1);
+                  }}
+                  className="w-full p-3 text-center rounded-xl border border-slate-200 bg-white text-lg font-black text-blue-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
               </div>
               <div className="mt-8 p-4 bg-emerald-50 rounded-2xl flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Total a Cobrar</span>
@@ -782,7 +816,7 @@ export const SellerApp: React.FC = () => {
                 <DollarSign className="h-32 w-32" />
               </div>
               <div className="relative z-10">
-                <p className="text-blue-300 text-[10px] uppercase font-bold mb-1 tracking-widest">Ventas Totales Hoy</p>
+                <p className="text-blue-300 text-[10px] uppercase font-bold mb-1 tracking-widest">Ventas Totales Corte</p>
                 <h3 className="text-5xl font-black">L. {revenueToday.toLocaleString()}</h3>
               </div>
             </div>
@@ -817,6 +851,20 @@ export const SellerApp: React.FC = () => {
               </div>
 
               <div className="pt-8 border-t border-slate-100">
+                <div className="mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Control de Botellones</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vendidos corte</label>
+                      <input
+                        value={soldToday}
+                        readOnly
+                        className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm font-black text-blue-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-8 p-6 bg-blue-50 rounded-3xl">
                   <div>
                     <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Total Declarado</p>
@@ -825,14 +873,20 @@ export const SellerApp: React.FC = () => {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Diferencia</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Esperado Efectivo</p>
+                    <p className="text-xl font-black text-slate-900">L. {expectedCashCycle.toLocaleString()}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 mb-1">Diferencia</p>
                     <p className={cn(
                       "text-xl font-black",
-                      (Object.entries(counts).reduce((acc: number, [val, count]) => acc + (Number(val) * (count as number)), 0) - revenueToday) === 0 ? "text-emerald-600" : "text-rose-600"
+                      (Object.entries(counts).reduce((acc: number, [val, count]) => acc + (Number(val) * (count as number)), 0) - expectedCashCycle) === 0 ? "text-emerald-600" : "text-rose-600"
                     )}>
-                      L. {(Object.entries(counts).reduce((acc: number, [val, count]) => acc + (Number(val) * (count as number)), 0) - revenueToday).toLocaleString()}
+                      L. {(Object.entries(counts).reduce((acc: number, [val, count]) => acc + (Number(val) * (count as number)), 0) - expectedCashCycle).toLocaleString()}
                     </p>
                   </div>
+                </div>
+                <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-widest">Gastos del Corte</p>
+                  <p className="text-xl font-black text-amber-800">L. {cycleExpenses.toLocaleString()}</p>
                 </div>
 
                 <button 

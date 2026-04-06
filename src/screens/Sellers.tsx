@@ -49,9 +49,9 @@ export const Sellers: React.FC = () => {
         correlativeEnd: 500,
       });
       fetchSellers();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error al crear vendedor');
+      alert(err?.message || 'Error al crear vendedor');
     } finally {
       setLoading(false);
     }
@@ -229,7 +229,7 @@ export const Sellers: React.FC = () => {
                   <input 
                     type="number" 
                     value={newSeller.correlativeStart}
-                    onChange={(e) => setNewSeller({...newSeller, correlativeStart: parseInt(e.target.value)})}
+                    onChange={(e) => setNewSeller({...newSeller, correlativeStart: Number(e.target.value || 0)})}
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -238,7 +238,7 @@ export const Sellers: React.FC = () => {
                   <input 
                     type="number" 
                     value={newSeller.correlativeEnd}
-                    onChange={(e) => setNewSeller({...newSeller, correlativeEnd: parseInt(e.target.value)})}
+                    onChange={(e) => setNewSeller({...newSeller, correlativeEnd: Number(e.target.value || 0)})}
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

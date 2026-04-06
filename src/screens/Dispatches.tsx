@@ -107,9 +107,9 @@ export const Dispatches: React.FC = () => {
                   <td className="px-6 py-4">
                     <span className={cn(
                       "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                      dispatch.type === 'initial' ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"
+                      (dispatch.type || 'reload') === 'initial' ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"
                     )}>
-                      {dispatch.type === 'initial' ? 'Inicial' : 'Recarga'}
+                      {(dispatch.type || 'reload') === 'initial' ? 'Inicial' : 'Recarga'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm font-black text-slate-900">

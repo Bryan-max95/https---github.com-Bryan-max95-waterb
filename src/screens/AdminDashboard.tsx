@@ -27,7 +27,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { format, startOfDay, subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '../lib/utils';
 
@@ -72,8 +72,8 @@ export const AdminDashboard: React.FC = () => {
         api.get('/api/maintenance')
       ]);
 
-      const today = startOfDay(new Date());
-      const todaySales = sales.filter((s: any) => startOfDay(new Date(s.timestamp)).getTime() === today.getTime());
+      const todayKey = format(new Date(), 'yyyy-MM-dd');
+      const todaySales = sales.filter((s: any) => (s.local_date || format(new Date(s.timestamp), 'yyyy-MM-dd')) === todayKey);
       
       setStats({
         dailySales: todaySales.reduce((acc: number, s: any) => acc + s.quantity, 0),
@@ -88,7 +88,8 @@ export const AdminDashboard: React.FC = () => {
       // Generate chart data from real sales
       const last7Days = Array.from({ length: 7 }).map((_, i) => {
         const d = subDays(new Date(), 6 - i);
-        const daySales = sales.filter((s: any) => startOfDay(new Date(s.timestamp)).getTime() === startOfDay(d).getTime());
+        const key = format(d, 'yyyy-MM-dd');
+        const daySales = sales.filter((s: any) => (s.local_date || format(new Date(s.timestamp), 'yyyy-MM-dd')) === key);
         return {
           name: format(d, 'EEE', { locale: es }),
           sales: daySales.reduce((acc: number, s: any) => acc + s.quantity, 0),
@@ -239,7 +240,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-bold text-slate-900">{sale.customer_name}</p>
-                    <p className="text-xs text-slate-500">{format(new Date(sale.timestamp), 'HH:mm')}</p>
+                    <p className="text-xs text-slate-500">{format(new Date(sale.local_timestamp || sale.timestamp), 'HH:mm')}</p>
                   </div>
                 </div>
                 <div className="text-right">

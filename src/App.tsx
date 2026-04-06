@@ -12,6 +12,7 @@ import { AdminDashboard } from './screens/AdminDashboard';
 import { SellerApp } from './screens/SellerApp';
 import { Products } from './screens/Products';
 import { Dispatches } from './screens/Dispatches';
+import { BottleCheckins } from './screens/BottleCheckins';
 import { Sales } from './screens/Sales';
 import { Closures } from './screens/Closures';
 import { Customers } from './screens/Customers';
@@ -53,6 +54,7 @@ function AppRoutes() {
             <Route path="sellers" element={<Sellers />} />
             <Route path="products" element={<Products />} />
             <Route path="dispatches" element={<Dispatches />} />
+            <Route path="bottle-checkins" element={<BottleCheckins />} />
             <Route path="sales" element={<Sales />} />
             <Route path="closures" element={<Closures />} />
             <Route path="customers" element={<Customers />} />

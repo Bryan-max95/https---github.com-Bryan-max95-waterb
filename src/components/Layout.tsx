@@ -16,7 +16,8 @@ import {
   UserCircle,
   History,
   Wrench,
-  Package
+  Package,
+  ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -32,6 +33,7 @@ export const Layout: React.FC = () => {
     { name: 'Vendedores', path: '/sellers', icon: Users },
     { name: 'Productos', path: '/products', icon: ShoppingBag },
     { name: 'Despachos', path: '/dispatches', icon: Truck },
+    { name: 'Chequeo Botellones', path: '/bottle-checkins', icon: ClipboardCheck },
     { name: 'Ventas', path: '/sales', icon: Package },
     { name: 'Cierre de Caja', path: '/closures', icon: History },
     { name: 'Clientes', path: '/customers', icon: UserCircle },
